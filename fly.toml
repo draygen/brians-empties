@@ -1,15 +1,13 @@
-# fly.toml app configuration file generated for brian-empties-game-123 on 2025-01-21T11:21:47-05:00
+# fly.toml app configuration file generated for brian-empties-game-123-icy-snow-4888 on 2025-01-21T11:52:33-05:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'brian-empties-game-123'
+app = 'brian-empties-game-123-icy-snow-4888'
 primary_region = 'bos'
 
 [build]
-
-[env]
-  PORT = '3000'
+  dockerfile = 'Dockerfile'
 
 [http_service]
   internal_port = 3000
@@ -32,10 +30,13 @@ primary_region = 'bos'
     port = 443
     handlers = ['tls', 'http']
 
-  [[services.tcp_checks]]
-    interval = '15s'
+  [[services.http_checks]]
+    interval = '10s'
     timeout = '2s'
-    grace_period = '1s'
+    grace_period = '5s'
+    method = 'get'
+    path = '/'
+    protocol = 'http'
 
 [[vm]]
   memory = '2gb'
