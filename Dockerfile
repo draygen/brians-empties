@@ -3,16 +3,18 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
-COPY client/package*.json ./client/
 COPY server/package*.json ./server/
+COPY client/package*.json ./client/
 
 # Install dependencies
+WORKDIR /app/server
 RUN npm install
-RUN cd client && npm install
-RUN cd server && npm install
+
+WORKDIR /app/client
+RUN npm install
 
 # Copy source code
+WORKDIR /app
 COPY . .
 
 # Build client
@@ -22,4 +24,5 @@ RUN cd client && npm run build
 EXPOSE 3000
 
 # Start server
-CMD ["node", "server/src/server.js"]
+WORKDIR /app/server
+CMD ["npm", "start"]
