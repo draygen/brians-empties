@@ -1,68 +1,81 @@
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const http = require('http');
+const cors    = require('cors');
+const path    = require('path');
+const http    = require('http');
+const { GameState } = require('./gameState');
 
-const app = express();
+const app    = express();
 const server = http.createServer(app);
-const io = require('socket.io')(server);
+const io     = require('socket.io')(server);
 
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 
-// Serve built client
+// Serve the built client
 const clientDist = path.resolve(__dirname, '../../client/dist');
 app.use(express.static(clientDist));
 app.get('*', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 
-// --- Simple game state ---
-const players = {};            // { socketId: { x, y, color } }
-const SPEED = 150;             // px per second
-const TICK = 1000 / 30;        // 30fps
+// Game state and player velocities
+const game = new GameState();
+const velocities = {};     // { socketId: { vx, vy } }
+const SPEED      = 150;    // pixels per second
+const TICK       = 1000/30; // 30 FPS
 
 io.on('connection', (socket) => {
-  // spawn player
-  players[socket.id] = {
-    x: 100 + Math.random() * 400,
-    y: 100 + Math.random() * 300,
-    vx: 0,
-    vy: 0,
-    color: `hsl(${Math.floor(Math.random()*360)}, 70%, 60%)`
-  };
+  // Add new player
+  game.addPlayer(socket.id, socket.id);
+  velocities[socket.id] = { vx: 0, vy: 0 };
 
-  // receive input (normalized dir from client)
-  socket.on('input', ({dx, dy}) => {
-    const p = players[socket.id];
-    if (!p) return;
-    p.vx = dx * SPEED;
-    p.vy = dy * SPEED;
+  // Receive movement input (normalized dx,dy)
+  socket.on('input', ({ dx, dy }) => {
+    velocities[socket.id].vx = dx * SPEED;
+    velocities[socket.id].vy = dy * SPEED;
+  });
+
+  // Player collects a can (empty)
+  socket.on('collectCan', (canId) => {
+    game.collectCan(socket.id, canId);
+  });
+
+  // Player delivers their collected can
+  socket.on('deliver', () => {
+    game.deliverCans(socket.id);
   });
 
   socket.on('disconnect', () => {
-    delete players[socket.id];
+    game.removePlayer(socket.id);
+    delete velocities[socket.id];
   });
 });
 
-// server tick -> integrate & broadcast
+// Game loop: move players, then broadcast state
 let last = Date.now();
 setInterval(() => {
   const now = Date.now();
-  const dt = (now - last) / 1000;
+  const dt  = (now - last) / 1000;
   last = now;
 
-  for (const id in players) {
-    const p = players[id];
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    // simple bounds
-    p.x = Math.max(10, Math.min(790, p.x));
-    p.y = Math.max(10, Math.min(590, p.y));
+  const state = game.getState(); // { players, cans, walls, doorPosition }
+  // update players' positions based on velocities
+  for (const id in state.players) {
+    const p   = state.players[id];
+    const vel = velocities[id];
+    if (vel) {
+      p.x += vel.vx * dt;
+      p.y += vel.vy * dt;
+      // clamp to 800x600 canvas bounds (adjust margins as needed)
+      p.x = Math.max(10, Math.min(790, p.x));
+      p.y = Math.max(10, Math.min(590, p.y));
+    }
   }
 
-  io.emit('state', players);
+  // Broadcast full state to all clients
+  io.emit('state', state);
 }, TICK);
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`Server is listening on port ${port}`);
 });
+
