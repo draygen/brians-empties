@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: brians-empties
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: |
+      npm ci
+      npm --prefix client ci
+      npm --prefix client run build
+      npm --prefix server ci
+    startCommand: node server/src/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: PORT
+        value: 3000

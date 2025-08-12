@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'brian-empties-game-123-icy-snow-4888'
+app = "brians-empties"
 primary_region = 'bos'
 
 [build]
